@@ -1,4 +1,4 @@
-//tn_fnds v0.0.6   2012/3/31
+// MacRes v0.0.1   1/7/18
 
 #include "world.h"
 

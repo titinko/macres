@@ -1,5 +1,4 @@
-//tn_fnds v0.0.4   2012/3/10
-//追加されているコメントには誤りがあるかもしれません。
+// MacRes v0.0.1   1/7/18
 #include "world.h"
 
 #include <stdio.h> // for debug

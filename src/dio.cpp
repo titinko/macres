@@ -1,4 +1,4 @@
-//cpr v0.0.1   3/10/2017
+// MacRes v0.0.1   3/10/2017
 #include <math.h>
 
 #include "world.h"

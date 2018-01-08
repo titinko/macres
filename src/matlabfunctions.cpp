@@ -1,4 +1,4 @@
-// Matlabから移植した関数の寄せ集め
+// Recreations of several Matlab functions.
 #include <math.h>
 #include "world.h"
 

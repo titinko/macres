@@ -1,4 +1,4 @@
-//cpr v0.0.1   3/10/2017
+// MacRes v0.0.1   1/7/18
 #include <windows.h>
 #include <math.h>
 #include <stdio.h>
