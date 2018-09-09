@@ -1,4 +1,4 @@
-(Branch of https://github.com/ohac/tn_fnds)
+(Fork of https://github.com/ohac/tn_fnds)
 
 MacRes - short for Mac Resampler
 
