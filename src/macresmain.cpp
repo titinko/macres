@@ -924,33 +924,50 @@ int main(int argc, char *argv[])
 
 	// Parse flags
 	char *string_buf;
+	int cur_char_index;
 	int flag_B = 50; // Breath
 	if(argc > 5 && (string_buf = strchr(argv[5],'B')) != 0)
 	{
-		sscanf(string_buf+1, "%d", &flag_B);
-		flag_B = max(0, min(100, flag_B));
+		cur_char_index = string_buf - argv[5];
+		if ((cur_char_index == 0) || (argv[5][cur_char_index - 1] != 'M'))
+		{
+			sscanf(string_buf+1, "%d", &flag_B);
+			flag_B = max(0, min(100, flag_B));
+		}
 	}
 
 	int flag_b = 0; // Consonant strength
 	if(argc > 5 && (string_buf = strchr(argv[5],'b')) != 0)
 	{
-		sscanf(string_buf+1, "%d", &flag_b);
-		flag_b = max(0, min(100, flag_b));
+		cur_char_index = string_buf - argv[5];
+		if ((cur_char_index == 0) || (argv[5][cur_char_index - 1] != 'M'))
+		{
+			sscanf(string_buf+1, "%d", &flag_b);
+			flag_b = max(0, min(100, flag_b));
+		}
 	}
 
 	int flag_t = 0; // 't' flag
 	if(argc > 5 && (string_buf = strchr(argv[5],'t')) != 0)
 	{
-		sscanf(string_buf+1, "%d", &flag_t);
+		cur_char_index = string_buf - argv[5];
+		if ((cur_char_index == 0) || (argv[5][cur_char_index - 1] != 'M'))
+		{
+			sscanf(string_buf+1, "%d", &flag_t);
+		}
 	}
 
 	double flag_g = 0.0; // Gender flag
 	double gRatio;
 	if(argc > 5 && (string_buf = strchr(argv[5],'g')) != 0)
 	{
-		sscanf(string_buf+1, "%lf", &flag_g);
-		if (flag_g > 100) flag_g = 100;
-		if (flag_g < -100) flag_g= -100;
+		cur_char_index = string_buf - argv[5];
+		if ((cur_char_index == 0) || (argv[5][cur_char_index - 1] != 'M'))
+		{
+			sscanf(string_buf+1, "%lf", &flag_g);
+			if (flag_g > 100) flag_g = 100;
+			if (flag_g < -100) flag_g= -100;
+		}
 	}
 	gRatio = pow(10, -flag_g / 200);
 
@@ -960,10 +977,14 @@ int main(int argc, char *argv[])
 	double f0Rand = 0;
 	if(argc > 5 && (string_buf = strchr(argv[5], 'W')) != 0)
 	{
-		sscanf(string_buf+1, "%lf", &flag_W);
-		if (flag_W > 1000) flag_W = 1000;
-		if ((flag_W < 50) && (flag_W > 0)){f0Rand =  flag_W / 50; flag_W = 0;}
-		if (flag_W < 0) flag_W = -1;
+		cur_char_index = string_buf - argv[5];
+		if ((cur_char_index == 0) || (argv[5][cur_char_index - 1] != 'M'))
+		{
+			sscanf(string_buf+1, "%lf", &flag_W);
+			if (flag_W > 1000) flag_W = 1000;
+			if ((flag_W < 50) && (flag_W > 0)){f0Rand =  flag_W / 50; flag_W = 0;}
+			if (flag_W < 0) flag_W = -1;
+		}
 	}
 
 	// Original flag: Hang/multiply? LPF on DIO's F0 analysis result. 0~20 def 5
@@ -978,15 +999,23 @@ int main(int argc, char *argv[])
 	int flag_A = 0; // Original flag: Correct volume of combined pitch changes.
 	if(argc > 5 && (string_buf = strchr(argv[5],'A')) != 0)
 	{
-		sscanf(string_buf+1, "%d", &flag_A);
-		flag_A = max(0, min(100, flag_A));
+		cur_char_index = string_buf - argv[5];
+		if ((cur_char_index == 0) || (argv[5][cur_char_index - 1] != 'M'))
+		{
+			sscanf(string_buf+1, "%d", &flag_A);
+			flag_A = max(0, min(100, flag_A));
+		}
 	}
 
 	int flag_O = 0; // Original flag: voice strength
 	if(argc > 5 && (string_buf = strchr(argv[5],'O')) != 0)
 	{
-		sscanf(string_buf+1, "%d", &flag_O);
-		flag_O = max(-100, min(100, flag_O));
+		cur_char_index = string_buf - argv[5];
+		if ((cur_char_index == 0) || (argv[5][cur_char_index - 1] != 'M'))
+		{
+			sscanf(string_buf+1, "%d", &flag_O);
+			flag_O = max(-100, min(100, flag_O));
+		}
 	}
 
 	// Original flag: Change the vowel stretching method: default is loops.
@@ -994,7 +1023,11 @@ int main(int argc, char *argv[])
 	int flag_e = 0;
 	if(argc > 5 && (string_buf = strchr(argv[5],'e')) != 0)
 	{
-		flag_e = 1;
+		cur_char_index = string_buf - argv[5];
+		if ((cur_char_index == 0) || (argv[5][cur_char_index - 1] != 'M'))
+		{
+			flag_e = 1;
+		}
 	}
 
 	FILE *file;
