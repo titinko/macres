@@ -1266,10 +1266,12 @@ int main(int argc, char *argv[])
 	for(i = 0;i < num_samples2;i++) output[i] = (short)(32768.0*(y[i]*0.5 * volume/maxAmp));
 
 	file = fopen(argv[1], "rb");
-	size_t result = fread(header, sizeof(char), 22, file);
-	assert(result == 22);
+	size_t result = fread(header, sizeof(char), 16, file);
+	assert(result == 16);
 	fclose(file);
 
+	*((int*)(&header[16])) = 16;								// chunkSize	 4
+	*((short int*)(&header[20])) = 1;							// formatTag	 2
 	*((short int*)(&header[22])) = 1;							// channels	 	 2
 	*((int*)(&header[24])) = sample_rate;						// samplerate 	 4
 	*((int*)(&header[28])) = sample_rate * bits_per_sample / 8;	// bytepersec 	 4

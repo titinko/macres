@@ -29,6 +29,7 @@ double * ReadWaveFile(
 	char header_buf[5]; // One more byte than needed.
 	unsigned char integer_buf[4];
 	double sample_buf, sign_bias, max_abs_value;
+	short int fmt_size;
 	short int num_channels;
 	int bytes_per_sample;
 	double *waveform; // Output goes here.
@@ -69,10 +70,11 @@ double * ReadWaveFile(
 	}
 	read_result = fread(header_buf, sizeof(char), 4, file); //1 0 0 0
 	assert(read_result == 4);
-	if(!(16 == header_buf[0] && 0 == header_buf[1] && 0 == header_buf[2] && 0 == header_buf[3]))
+	fmt_size = header_buf[0]; // Should not exceed 40.
+	if(!(16 == fmt_size || 18 == fmt_size))
 	{
 		fclose(file);
-		fprintf(stderr, "Error: Missing or incorrect fmt length in input file.\n");
+		fprintf(stderr, "Error: Missing or incorrect fmt size in input file.\n");
 		return NULL;
 	}
 	read_result = fread(header_buf, sizeof(char), 2, file); //1 0
@@ -80,7 +82,7 @@ double * ReadWaveFile(
 	if(!(1 == header_buf[0] && 0 == header_buf[1]))
 	{
 		fclose(file);
-		fprintf(stderr, "Error: Missing format ID in input file.\n");
+		fprintf(stderr, "Error: Missing or incorrect format ID in input file.\n");
 		return NULL;
 	}
 
@@ -107,7 +109,14 @@ double * ReadWaveFile(
 	assert(read_result == 2);
 	*bits_per_sample = integer_buf[0]; // Should be a multiple of 8.
 	bytes_per_sample = *bits_per_sample / 8;
-	if (*bits_per_sample % 8 > 0) bytes_per_sample++; // Round up if necessary.
+	if (*bits_per_sample % 8 > 0) {
+		bytes_per_sample++; // Round up if necessary.
+	}
+
+	// If fmt is 18 blocks, skip extension size.
+	if (18 == fmt_size) {
+		fseek(file, 2, SEEK_CUR);
+	}
 
 	// Skip through the file until finding the required data header.
 	int chunk_length;
