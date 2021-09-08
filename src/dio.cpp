@@ -28,7 +28,8 @@ int GetNumDIOSamples(int sample_rate, int num_samples, double frame_period)
 // DIO (Distributed Inline filter Operation) to filter waveform into F0.
 // waveform	: Input signal
 // num_samples : Length of sample
-// f0	: where to put result?
+// f0	: where to put result
+// time_axis: Already populated, the time axis for f0.
 void dio(double *waveform, int num_samples, int sample_rate, double frame_period, 
 		 double *time_axis, double *f0)
 {
@@ -101,9 +102,6 @@ void dio(double *waveform, int num_samples, int sample_rate, double frame_period
 	double *	f0Deviations;
 	interpolatedF0 = (double *) malloc(sizeof(double) * lengthInMs);
 	f0Deviations   = (double *) malloc(sizeof(double) * lengthInMs);
-
-	for(i = 0;i < num_frames;i++)
-		time_axis[i] = (double)i * frame_period/1000.0;
 
 	// So FFTW can reuse the plan, the memory is framed/preserved from the DIO side. (?)
 	fft_destroy_plan(forwardFFT);

@@ -8,6 +8,7 @@
 
 #include <windows.h>
 
+#include "frqread.h"
 #include "world.h"
 #include "wavread.h"
 
@@ -1050,38 +1051,44 @@ int main(int argc, char *argv[])
 	printf("Sampling : %d Hz %d Bit\n", sample_rate, bits_per_sample);
 	printf("Length %d [sample]\n", num_samples);
 	printf("Length %f [sec]\n", (double)num_samples/(double)sample_rate);
+	printf("\nAnalysis\n");
 
 	// Calculate beforehand the number of samples in F0 (one per FRAMEPERIOD ms).
 	num_frames = GetNumDIOSamples(sample_rate, num_samples, FRAMEPERIOD);
-	f0 = (double *)malloc(sizeof(double)*num_frames);
-	time_axis  = (double *)malloc(sizeof(double)*num_frames);
-
+	
+	// Time axis for f0.
+	time_axis  = (double *)malloc(sizeof(double) * num_frames);
+	for (i = 0; i < num_frames; i++)
+	{
+		time_axis[i] = (double)i * FRAMEPERIOD / 1000.0;
+	}
+	
 	// Start to estimate F0 contour (fundamental frequency) using DIO.
+	f0 = (double *)malloc(sizeof(double) * num_frames);
 	DWORD elapsedTime;
 	if(flag_W == 0) // F flag: F0 enforcement settings.
 	{
-		printf("\nAnalysis\n");
-		elapsedTime = timeGetTime();
-
-		dio(waveform, num_samples, sample_rate, FRAMEPERIOD, time_axis, f0);
-		printf("DIO: %d [msec]\n", timeGetTime() - elapsedTime);
-
-
-		//F0ToFile(f0, num_frames);
-		//F0's Low Pass Filter
-		if (flag_d !=0)
+		// If F0 not provided, estimate using DIO.
+		if (ReadFrqFile(argv[1], num_frames, f0) != 0)
 		{
+			elapsedTime = timeGetTime();
+			dio(waveform, num_samples, sample_rate, FRAMEPERIOD, time_axis, f0);
+			printf("DIO: %d [msec]\n", timeGetTime() - elapsedTime);
+		}
+		
+		// F0's Low Pass Filter.
+		if (flag_d != 0)
+		{
+			printf("Applying low pass filter: %d.\n", flag_d);
 			f0Lpf(f0, num_frames, flag_d);
 		}
-		//F0ToFile(f0, num_frames);
-
 	}
 	else
 	{
+		// Flag W overrides f0 with a constant value.
 		for(i = 0;i < num_frames;i++)
 		{
 			f0[i] = (flag_W == -1) ? 0.0 : flag_W;
-			time_axis[i] = (double)i * FRAMEPERIOD/1000.0;
 		}
 	}
 	
