@@ -63,7 +63,7 @@ void speqToFile(fft_complex * spec, int fftl)
 	fclose(file);
 }
 
-void createFinalPitch(double *f0, int num_frames, double *pitchBend, int bLen, int num_samples, int offset_ms, int sample_rate, double tempo)
+void createFinalPitch(double *f0, int num_frames, double ms_per_frq, double *pitchBend, int bLen, int num_samples, int offset_ms, int sample_rate, double tempo)
 {
 	int i;
 	double *time1, *time2, *pitch;
@@ -73,12 +73,15 @@ void createFinalPitch(double *f0, int num_frames, double *pitchBend, int bLen, i
 	time2 = (double *)malloc(sizeof(double) * bLen);
 	pitch = (double *)malloc(sizeof(double) * num_frames);
 
-	for(i = 0;i < num_frames;i++) time1[i] = (double)i * FRAMEPERIOD;
+	for(i = 0;i < num_frames;i++) time1[i] = (double)i * ms_per_frq;
     for(i = 0;i < bLen;i++) time2[i] = (double)i * pStep / (double)sample_rate * 1000.0 + offset_ms/1000.0;
 	time2[0] = 0;
 	interp1(time2, pitchBend, bLen, time1, num_frames, pitch);
 
-	for(i = (int)(offset_ms*FRAMEPERIOD/1000);i < num_frames;i++) f0[i] *= pitch[i];
+	for(i = (int)(offset_ms * ms_per_frq / 1000); i < num_frames; i++)
+	{
+		f0[i] *= pitch[i];
+	}
 
 	//for(i = 0;i < num_frames;i+=10)
 	//{
@@ -536,7 +539,7 @@ void rebuildWave(double *waveform, int xLen, int fftl, int equLen, fft_complex *
 /**
  * Apply the 'B' flag (breath)
  */
-void breath2(double *f0, int num_frames, int sample_rate, double *waveform, int xLen, fft_complex **waveSpecgram,int equLen, int fftl, int flag_B)
+void breath2(double *f0, int num_frames, int sample_rate, double ms_per_frq, double *waveform, int xLen, fft_complex **waveSpecgram,int equLen, int fftl, int flag_B)
 {
 	int i, j;
 
@@ -593,7 +596,7 @@ void breath2(double *f0, int num_frames, int sample_rate, double *waveform, int 
 		for(j = 0;j < fftl/2+1; j++) waveSpec[j][0] = log10(waveSpec[j][0]+0.00000001); // logarithmic change
 		for(j = 0;j < fftl/2+1; j++) waveSpec[j][1] = waveSpec[j][0];
 
-		nowIndex = max(0.0, min((double)num_frames-1, (double)(offset_ms + fftl / 2) / sample_rate * 1000 / FRAMEPERIOD));
+		nowIndex = max(0.0, min((double)num_frames-1, (double)(offset_ms + fftl / 2) / sample_rate * 1000 / ms_per_frq));
 		sIndex = min(num_frames -2, (int)nowIndex);
 		eIndex = sIndex + 1;
 		
@@ -682,7 +685,7 @@ void breath2(double *f0, int num_frames, int sample_rate, double *waveform, int 
 /**
  * Apply the 'O' flag (voice strength)
  */
-void Opening(double *f0, int num_frames, int sample_rate, fft_complex **waveSpecgram,int equLen, int fftl, int flag_O)
+void Opening(double *f0, int num_frames, int sample_rate, double ms_per_frq, fft_complex **waveSpecgram,int equLen, int fftl, int flag_O)
 {
 	int i, j;
 	double opn = (double) flag_O / 100.0;
@@ -716,7 +719,7 @@ void Opening(double *f0, int num_frames, int sample_rate, fft_complex **waveSpec
 	int f0Frame;
 	for(i = 0;i < equLen;i++)
 	{
-		f0Frame = max(0, min(num_frames-1, (int)((double)((i+1) * fftl / 2) / sample_rate * 1000 / FRAMEPERIOD + 0.5)));
+		f0Frame = max(0, min(num_frames-1, (int)((double)((i+1) * fftl / 2) / sample_rate * 1000 / ms_per_frq + 0.5)));
 		if(f0[f0Frame] == 0.0) continue;
 		for(j = 0;j < fftl/2+1;j++)
 		{	
@@ -822,7 +825,8 @@ void f0FixG(double *f0, int num_frames2, double gRatio)
 void f0Noise(double *f0, int num_frames, double f0Rand)
 {
 	int i, j;
-	int Pit = 1;//(int)(5 / FRAMEPERIOD + 0.5); // Number of frames in pitch change interval (50ms?)
+	// Number of frames in pitch change interval (50ms?)
+	int Pit = 1; //(int)(5 / FRAMEPERIOD + 0.5);
 	double sRand, eRand;
 	double NowRand;
 
@@ -853,7 +857,7 @@ double FrqToPit(double Frq)
 }
 
 // A flag（correct the volume of all combined pitch changes）.
-void autoVolume(double *f0, int num_frames, int sample_rate, double *volume, int flag_A)
+void autoVolume(double *f0, int num_frames, int sample_rate, double ms_per_frq, double *volume, int flag_A)
 {
 	int i;
 	
@@ -874,7 +878,7 @@ void autoVolume(double *f0, int num_frames, int sample_rate, double *volume, int
 
 		if (f0[i+1] != 0.0)	
 		{
-			AutoPow = (FrqToPit(f0[i+1]) - FrqToPit(f0[i])) * (441 / (sample_rate * FRAMEPERIOD)) * flag_A; 
+			AutoPow = (FrqToPit(f0[i+1]) - FrqToPit(f0[i])) * (441 / (sample_rate * ms_per_frq)) * flag_A; 
 			volume[i] = min(1.2, pow(2, AutoPow * 1));
 
 			continue;
@@ -893,6 +897,17 @@ void autoVolume(double *f0, int num_frames, int sample_rate, double *volume, int
 	if(f0[num_frames-1] != 0.0 && f0[num_frames-2] != 0.0) volume[num_frames-1] = volume[num_frames-2];
 }
 
+/** Create the time axis for an f0 curve, needed for calculations. */
+double * createTimeAxis(int num_frames, double ms_per_frq)
+{
+	double *time_axis  = (double *)malloc(sizeof(double) * num_frames);
+	for (int i = 0; i < num_frames; i++)
+	{
+		time_axis[i] = (double)i * ms_per_frq / 1000.0;
+	}
+	return time_axis;
+}
+
 /**
  * Main method.
  */
@@ -900,7 +915,7 @@ int main(int argc, char *argv[])
 {
 	int i;
 
-	double *waveform,*f0,*time_axis,*y;
+	double *waveform, *f0, *time_axis, *y;
 	double **residualSpecgram;
 	int *residualSpecgramLength;
 	int *residualSpecgramIndex;
@@ -1054,25 +1069,28 @@ int main(int argc, char *argv[])
 	printf("\nAnalysis\n");
 
 	// Calculate beforehand the number of samples in F0 (one per FRAMEPERIOD ms).
-	num_frames = GetNumDIOSamples(sample_rate, num_samples, FRAMEPERIOD);
+	double ms_per_frq = FRAMEPERIOD; // Can be overridden by frq file.
+	num_frames = GetNumDIOSamples(sample_rate, num_samples, ms_per_frq);
 	
-	// Time axis for f0.
-	time_axis  = (double *)malloc(sizeof(double) * num_frames);
-	for (i = 0; i < num_frames; i++)
-	{
-		time_axis[i] = (double)i * FRAMEPERIOD / 1000.0;
-	}
-	
-	// Start to estimate F0 contour (fundamental frequency) using DIO.
-	f0 = (double *)malloc(sizeof(double) * num_frames);
 	DWORD elapsedTime;
 	if(flag_W == 0) // F flag: F0 enforcement settings.
 	{
-		// If F0 not provided, estimate using DIO.
-		if (ReadFrqFile(argv[1], num_frames, f0) != 0)
+		// Read frq file. Overrides num_frames and ms_per_frq if successful.
+		f0 = ReadFrqFile(
+			argv[1],
+			sample_rate,
+			num_samples,
+			offset_ms,
+			&num_frames,
+			&ms_per_frq);
+		time_axis = createTimeAxis(num_frames, ms_per_frq);
+		
+		// If frq file not provided, estimate f0 using DIO.
+		if (f0 == NULL)
 		{
 			elapsedTime = timeGetTime();
-			dio(waveform, num_samples, sample_rate, FRAMEPERIOD, time_axis, f0);
+			f0 = (double *)malloc(sizeof(double) * num_frames);
+			dio(waveform, num_samples, sample_rate, ms_per_frq, time_axis, f0);
 			printf("DIO: %d [msec]\n", timeGetTime() - elapsedTime);
 		}
 		
@@ -1086,7 +1104,9 @@ int main(int argc, char *argv[])
 	else
 	{
 		// Flag W overrides f0 with a constant value.
-		for(i = 0;i < num_frames;i++)
+		time_axis = createTimeAxis(num_frames, ms_per_frq);
+		f0 = (double *)malloc(sizeof(double) * num_frames);
+		for(i = 0; i < num_frames; i++)
 		{
 			f0[i] = (flag_W == -1) ? 0.0 : flag_W;
 		}
@@ -1115,7 +1135,7 @@ int main(int argc, char *argv[])
 	double velocity;
 	double vRatio;
 
-	inpunum_framesgthMsec = (int)(num_frames*FRAMEPERIOD);// Length of input noise available.
+	inpunum_framesgthMsec = (int)(num_frames * ms_per_frq);// Length of input noise available.
 	lengthMsec = atoi(argv[7]);               // Desired note length
 	snum_framesgthMsec = atoi(argv[8]);             // Length of consonant section.
 	velocity = (double)atoi(argv[4]);         // Consonant velocity.
@@ -1128,7 +1148,7 @@ int main(int argc, char *argv[])
 
 	int num_frames2;
 
-    num_frames2 = (int)(0.5+(double)(lengthMsec)/FRAMEPERIOD);
+    num_frames2 = (int)(0.5 + (double)(lengthMsec) / ms_per_frq);
 
 	fixedF0					= (double *) malloc(sizeof(double)   * num_frames2);
 	fixedResidualSpecgramIndex	= (int *) malloc(sizeof(int) * num_frames2);
@@ -1136,7 +1156,7 @@ int main(int argc, char *argv[])
 
 	// Guarantee memory for the final waveform.
 	int num_samples2;
-	num_samples2 = (int)((lengthMsec)/1000.0*(double)sample_rate);
+	num_samples2 = (int)((lengthMsec) / 1000.0 * (double)sample_rate);
 	y  = (double *)malloc(sizeof(double)*num_samples2);
 	for(i = 0;i < num_samples2;i++) y[i] = 0.0;
     //printf("length:%d, %f\n",num_samples2, (double)num_samples2/(double)sample_rate*1000.0);
@@ -1153,7 +1173,7 @@ int main(int argc, char *argv[])
 
 	num_frames2 = stretchTime(f0, num_frames, fftl, residualSpecgramIndex, 
 			fixedF0, num_frames2, fixedResidualSpecgramIndex,
-			os/(int)FRAMEPERIOD, st/(int)FRAMEPERIOD, min(ed/(int)FRAMEPERIOD, num_frames-1),
+			os/(int)ms_per_frq, st/(int)ms_per_frq, min(ed/(int)ms_per_frq, num_frames-1),
 			lengthMsec, vRatio, flag_e);
 	if (num_frames2 == -1) {
 		fprintf(stderr, "Error while stretching sample.\n");
@@ -1188,7 +1208,7 @@ int main(int argc, char *argv[])
 	// For every frame in the resized F0, adjust pitch.
 	for (i = 0; i < num_frames2; i++)
   	{
-		cur_millis = FRAMEPERIOD * i;
+		cur_millis = ms_per_frq * i;
 		amt_into_cur_step = cur_millis * 0.001 * sample_rate / pStep;
 		cur_step = (int)floor(amt_into_cur_step);
 		amt_into_cur_step -= cur_step;
@@ -1196,7 +1216,7 @@ int main(int argc, char *argv[])
 		fixedF0[i] *= pow(2, (pitch[cur_step] * (1.0 - amt_into_cur_step) + 
 				pitch[cur_step + 1] * amt_into_cur_step) / 1200.0);
 	}
-	//createFinalPitch(fixedF0, num_frames2, pitchBend, bLen, num_samples2, offset_ms, sample_rate, tempo);
+	//createFinalPitch(fixedF0, num_frames2, ms_per_frq, pitchBend, bLen, num_samples2, offset_ms, sample_rate, tempo);
 
 	// W flag's pitch noise: can't envision the death voice change very well. (???)
 	//if(f0Rand != 0.0)
@@ -1206,7 +1226,7 @@ int main(int argc, char *argv[])
 	//}
 	
 	// Apply the 'A' flag.
-	autoVolume(fixedF0, num_frames2, sample_rate, fixedVolume, flag_A);
+	autoVolume(fixedF0, num_frames2, sample_rate, ms_per_frq, fixedVolume, flag_A);
 
 	// Apply the 'b' flag if necessary.
 	if(flag_b != 0)
@@ -1221,7 +1241,7 @@ int main(int argc, char *argv[])
 	printf("\nSynthesis\n");
 	elapsedTime = timeGetTime();
 	synthesisPt101(fixedDefault_f0, fixedF0, num_frames2, residualSpecgram, residualSpecgramLength, fixedResidualSpecgramIndex,
-		fixedVolume, fftl, FRAMEPERIOD, sample_rate, y, num_samples2);
+		fixedVolume, fftl, ms_per_frq, sample_rate, y, num_samples2);
 
 	printf("WORLD: %d [msec]\n", timeGetTime() - elapsedTime);
 
@@ -1241,7 +1261,7 @@ int main(int argc, char *argv[])
 	// Apply 'O' flag if necessary.
 	if(flag_O != 0)
 	{
-		Opening(fixedF0, num_frames2, sample_rate, waveSpecgram, equLen, equfftL, flag_O);
+		Opening(fixedF0, num_frames2, sample_rate, ms_per_frq, waveSpecgram, equLen, equfftL, flag_O);
 	}
 
 	// Put the equalizer results (wave_specgram) back into a waveform (y).
@@ -1253,7 +1273,7 @@ int main(int argc, char *argv[])
 	// Apply noise if B flag over 50.
 	if(flag_B > 50)
 	{
-		 breath2(fixedF0, num_frames2, sample_rate, y, num_samples2, waveSpecgram, equLen, equfftL, flag_B);
+		 breath2(fixedF0, num_frames2, sample_rate, ms_per_frq, y, num_samples2, waveSpecgram, equLen, equfftL, flag_B);
 	}
 
 	// Offset setup.

@@ -5,4 +5,3 @@ double * ReadWaveFile(
 	int *num_samples,
 	int *offset_ms,
 	int *cutoff_ms);
-	
