@@ -1045,6 +1045,17 @@ int main(int argc, char *argv[])
 			flag_e = 1;
 		}
 	}
+	
+	// Original flag: Try to read f0 from .frq files. Default is self-generating the f0.
+	int flag_f = 0;
+	if (argc > 5 && (string_buf = strchr(argv[5], 'f')) != 0)
+	{
+		cur_char_index = string_buf - argv[5];
+		if ((cur_char_index == 0) || (argv[5][cur_char_index - 1] != 'M'))
+		{
+			flag_f = 1;
+		}
+	}
 
 	FILE *file;
 
@@ -1076,13 +1087,20 @@ int main(int argc, char *argv[])
 	if(flag_W == 0) // F flag: F0 enforcement settings.
 	{
 		// Read frq file. Overrides num_frames and ms_per_frq if successful.
-		f0 = ReadFrqFile(
-			argv[1],
-			sample_rate,
-			num_samples,
-			offset_ms,
-			&num_frames,
-			&ms_per_frq);
+		if (flag_f == 1)
+		{
+			f0 = ReadFrqFile(
+				argv[1],
+				sample_rate,
+				num_samples,
+				offset_ms,
+				&num_frames,
+				&ms_per_frq);
+		}
+		else
+		{
+			f0 = NULL;
+		}
 		time_axis = createTimeAxis(num_frames, ms_per_frq);
 		
 		// If frq file not provided, estimate f0 using DIO.
