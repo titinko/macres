@@ -1046,7 +1046,7 @@ int main(int argc, char *argv[])
 		}
 	}
 	
-	// Original flag: Try to read f0 from .frq files. Default is self-generating the f0.
+	// Original flag: Toggle reading f0 from .frq files. Default is reading the f0.
 	int flag_f = 0;
 	if (argc > 5 && (string_buf = strchr(argv[5], 'f')) != 0)
 	{
@@ -1087,13 +1087,13 @@ int main(int argc, char *argv[])
 	if(flag_W == 0) // F flag: F0 enforcement settings.
 	{
 		// Read frq file. Overrides num_frames and ms_per_frq if successful.
-		if (flag_f == 1)
+		if (flag_f == 0)
 		{
 			f0 = ReadFrqFile(
 				argv[1],
 				sample_rate,
 				num_samples,
-				offset_ms,
+				atoi(argv[6]), // The original offset_ms is used for frq file.
 				&num_frames,
 				&ms_per_frq);
 		}
@@ -1115,7 +1115,7 @@ int main(int argc, char *argv[])
 		// F0's Low Pass Filter.
 		if (flag_d != 0)
 		{
-			printf("Applying low pass filter: %d.\n", flag_d);
+			// printf("Applying low pass filter: %d.\n", flag_d);
 			f0Lpf(f0, num_frames, flag_d);
 		}
 	}

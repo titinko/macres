@@ -1,5 +1,5 @@
 // MacRes v0.0.2   9/1/21
-#include <algorithm>
+#include <string.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,10 +28,22 @@ int bufToInt(unsigned char *buf, char endian)
 /**
  * Helper function to convert a byte buffer to a double.
  */
-double bufToDouble(char *buf)
+double bufToDouble(char *buf, char endian)
 {
 	double result;
-	std::copy(buf, buf + sizeof(double), reinterpret_cast<char *>(&result));
+	char reverse_buf[8];
+	if (endian == 'l')
+	{
+		memcpy(&result, buf, sizeof(double));
+	}
+	else
+	{
+		for (int i = 0; i < 8; i++)
+		{
+			reverse_buf[i] = buf[7 - i];
+		}
+		memcpy(&result, reverse_buf, sizeof(double));
+	}
 	return result;
 }
 
@@ -132,7 +144,7 @@ double * ReadFrqFile(
 	// Average frequency.
 	read_result = fread(double_buf, sizeof(char), 8, file);
 	assert(read_result = 8);
-	avg_frq = bufToDouble(double_buf);
+	avg_frq = bufToDouble(double_buf, endian);
 	// Empty space.
 	fseek(file, 16, SEEK_CUR);
 	// Number of frames.
@@ -164,7 +176,7 @@ double * ReadFrqFile(
 	for (int cur_frame = start_frame; cur_frame < end_frame; cur_frame++)
 	{
 		cur_byte = cur_frame * 16;
-		f0[cur_frame] = bufToDouble(f0_buf + cur_byte);
+		f0[cur_frame - start_frame] = bufToDouble(f0_buf + cur_byte, endian);
 	}
 	
 	// Clean up.
