@@ -8,6 +8,7 @@
 
 #include <windows.h>
 
+#include <libpyin/pyin.h>
 #include "frqread.h"
 #include "world.h"
 #include "wavread.h"
@@ -453,7 +454,7 @@ void f0Lpf(double *f0, int num_frames, int flag_d)
 /**
  * Create wave specgram for equalizing.
  */
-void createWaveSpec(double *waveform, int xLen, int fftl, int equLen, fft_complex **waveSpecgram)
+void createWaveSpec(double *wavform, int xLen, int fftl, int equLen, fft_complex **waveSpecgram)
 {
 	int i, j;
 
@@ -471,7 +472,7 @@ void createWaveSpec(double *waveform, int xLen, int fftl, int equLen, fft_comple
 		offset_ms = i * fftl / 2;
 		// Copy the data.
 		for (j = 0; j < fftl; j++) {
-			waveBuff[j] = waveform[offset_ms + j] * 
+			waveBuff[j] = wavform[offset_ms + j] * 
 				(0.5 - 0.5 * cos(2.0*PI*(double)j/(double)fftl)); // Multiply the window.
 		}
 
@@ -495,7 +496,7 @@ void createWaveSpec(double *waveform, int xLen, int fftl, int equLen, fft_comple
 /**
  * Rebuild wave from spectrogram
  */
-void rebuildWave(double *waveform, int xLen, int fftl, int equLen, fft_complex **waveSpecgram)
+void rebuildWave(double *wavform, int xLen, int fftl, int equLen, fft_complex **waveSpecgram)
 {
 	int i, j;
 	double *waveBuff;
@@ -506,7 +507,7 @@ void rebuildWave(double *waveform, int xLen, int fftl, int equLen, fft_complex *
 	wave_i_fft = fft_plan_dft_c2r_1d(fftl, waveSpec, waveBuff, FFT_ESTIMATE);	
 
 	int offset_ms;
-	for(i = 0;i < xLen;i++) waveform[i] = 0;
+	for(i = 0;i < xLen;i++) wavform[i] = 0;
 
 	for(i = 0;i < equLen;i++)
 	{
@@ -526,7 +527,7 @@ void rebuildWave(double *waveform, int xLen, int fftl, int equLen, fft_complex *
 		for(j = 0;j < fftl; j++) waveBuff[j] /= fftl;
 
 		// Copy the data.
-		for(j = 0;j < fftl; j++) waveform[offset_ms + j]  += waveBuff[j]; 
+		for(j = 0;j < fftl; j++) wavform[offset_ms + j]  += waveBuff[j]; 
 
 	}
 
@@ -539,7 +540,7 @@ void rebuildWave(double *waveform, int xLen, int fftl, int equLen, fft_complex *
 /**
  * Apply the 'B' flag (breath)
  */
-void breath2(double *f0, int num_frames, int sample_rate, double ms_per_frq, double *waveform, int xLen, fft_complex **waveSpecgram,int equLen, int fftl, int flag_B)
+void breath2(double *f0, int num_frames, int sample_rate, double ms_per_frq, double *wavform, int xLen, fft_complex **waveSpecgram,int equLen, int fftl, int flag_B)
 {
 	int i, j;
 
@@ -670,7 +671,7 @@ void breath2(double *f0, int num_frames, int sample_rate, double ms_per_frq, dou
 	// Noise synthesis.
 	double noiseRatio = max(0.0, (double)(flag_B - 50) / 50.0);
 	double waveRatio = 1 - noiseRatio;
-	for(i = 0;i < xLen;i++) waveform[i] = waveform[i] * waveRatio + noise[i] * noiseRatio;
+	for(i = 0;i < xLen;i++) wavform[i] = wavform[i] * waveRatio + noise[i] * noiseRatio;
 
 	// Clean up.
 	fft_destroy_plan(noise_f_fft);
@@ -908,6 +909,37 @@ double * createTimeAxis(int num_frames, double ms_per_frq)
 	return time_axis;
 }
 
+/** Use libpyin to estimate f0. Parameter f0 should already be malloc'ed. */
+void pyin(double *wavform, int num_samples, int sample_rate, double ms_per_frq,
+	int num_frames, double *f0)
+{
+	int i;
+
+	FP_TYPE* wavform_pyin = (FP_TYPE*) malloc(sizeof(FP_TYPE) * num_samples);
+	for (i = 0; i < num_samples; i++)
+	{
+		wavform_pyin[i] = (FP_TYPE) wavform[i];
+	}
+	int samples_per_frq = ceil(ms_per_frq * (sample_rate / 1000.0));
+	pyin_config param = pyin_init(samples_per_frq);
+	param.fmin = 50.0;
+	param.fmax = 800.0;
+	param.trange = pyin_trange(param.nq, param.fmin, param.fmax);
+	param.nf = samples_per_frq * 5; // Number of samples in an analysis frame.
+	param.w = param.nf / 3; // Correlation size in samples.
+
+	int pyin_nfrm = 0;
+	FP_TYPE* f0_pyin = 
+		pyin_analyze(param, wavform_pyin, num_samples, sample_rate, &pyin_nfrm);
+	for (i = 0; i < num_frames; i++)
+	{
+		// Fill f0 with the result before returning.
+		f0[i] = (double) ((i >= pyin_nfrm) ? f0_pyin[pyin_nfrm - 1] : f0_pyin[i]);
+	}
+	free(wavform_pyin);
+	free(f0_pyin);
+}
+
 /**
  * Main method.
  */
@@ -915,7 +947,7 @@ int main(int argc, char *argv[])
 {
 	int i;
 
-	double *waveform, *f0, *time_axis, *y;
+	double *wavform, *f0, *time_axis, *y;
 	double **residualSpecgram;
 	int *residualSpecgramLength;
 	int *residualSpecgramIndex;
@@ -1029,7 +1061,7 @@ int main(int argc, char *argv[])
 		cur_char_index = string_buf - argv[5];
 		if ((cur_char_index == 0) || (argv[5][cur_char_index - 1] != 'M'))
 		{
-			sscanf(string_buf+1, "%d", &flag_O);
+			sscanf(string_buf + 1, "%d", &flag_O);
 			flag_O = max(-100, min(100, flag_O));
 		}
 	}
@@ -1056,6 +1088,20 @@ int main(int argc, char *argv[])
 			flag_f = 1;
 		}
 	}
+	
+	// Original flag: method for generating f0.
+	// m0 uses libpyin. (default)
+	// m1 uses DIO.
+	int flag_m = 0;
+	if (argc > 5 && (string_buf = strchr(argv[5], 'm')) != 0)
+	{
+		cur_char_index = string_buf - argv[5];
+		if ((cur_char_index == 0) || (argv[5][cur_char_index - 1] != 'M'))
+		{
+			sscanf(string_buf + 1, "%d", &flag_m);
+			flag_d = max(0, min(1, flag_d));
+		}
+	}
 
 	FILE *file;
 
@@ -1065,9 +1111,9 @@ int main(int argc, char *argv[])
 	cutoff_ms = atoi(argv[9]);
 
 	int sample_rate, bits_per_sample;
-	waveform = ReadWaveFile(argv[1], &sample_rate, &bits_per_sample, &num_samples, &offset_ms, &cutoff_ms);
+	wavform = ReadWaveFile(argv[1], &sample_rate, &bits_per_sample, &num_samples, &offset_ms, &cutoff_ms);
 
-	if(waveform == NULL)
+	if(wavform == NULL)
 	{
 		fprintf(stderr, "Error: Your input file does not exist.\n");
 		return 0;
@@ -1108,8 +1154,18 @@ int main(int argc, char *argv[])
 		{
 			elapsedTime = timeGetTime();
 			f0 = (double *)malloc(sizeof(double) * num_frames);
-			dio(waveform, num_samples, sample_rate, ms_per_frq, time_axis, f0);
-			printf("DIO: %d [msec]\n", timeGetTime() - elapsedTime);
+			if (flag_m == 1)
+			{
+				// DIO method.
+				dio(wavform, num_samples, sample_rate, ms_per_frq, time_axis, f0);
+				printf("DIO: %d [msec]\n", timeGetTime() - elapsedTime);
+			}
+			else
+			{
+				// pyin method.
+				pyin(wavform, num_samples, sample_rate, ms_per_frq, num_frames, f0);
+				printf("PYIN: %d [msec]\n", timeGetTime() - elapsedTime);
+			}
 		}
 		
 		// F0's Low Pass Filter.
@@ -1136,7 +1192,7 @@ int main(int argc, char *argv[])
 	elapsedTime = timeGetTime();
 	residualSpecgramIndex = (int *)malloc(sizeof(int) * num_frames);
 
-	pCount = pt101(waveform, num_samples, sample_rate, time_axis, f0, &residualSpecgram, &residualSpecgramLength, residualSpecgramIndex);
+	pCount = pt101(wavform, num_samples, sample_rate, time_axis, f0, &residualSpecgram, &residualSpecgramLength, residualSpecgramIndex);
 	printf("PLATINUM: %d [msec]\n", timeGetTime() - elapsedTime);
 
 	// Apply gender flag if necessary.
@@ -1335,7 +1391,7 @@ int main(int argc, char *argv[])
 	free(output);
 
 	free(pitch);
-	free(waveform);
+	free(wavform);
 	free(time_axis);
 	free(f0);
 	free(fixedF0);
