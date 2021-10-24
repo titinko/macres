@@ -12,6 +12,6 @@ https://en.wikipedia.org/wiki/Utau.
 
 ## Building from source
 
-This program uses two external libraries: [libpyin](https://github.com/Sleepwalking/libpyin) and [libgvps](https://github.com/Sleepwalking/libpyin).
+This program uses two external libraries: [libpyin](https://github.com/Sleepwalking/libpyin) and [libgvps](https://github.com/Sleepwalking/libgvps).
 
-You will need to git clone both repositories, install their libraries using make install, and update the LIB_PREFIX field in frq0003gen's Makefile to match the directory where the .a and .h files were generated. You will also need to manually edit pyin.h to wrap its function definitions with "extern C" as described in [this bug](https://github.com/Sleepwalking/libpyin/issues/10).
+You will need to git clone both repositories, install their libraries using make install, and update the LIB_PREFIX field in macres's Makefile to match the directory where the .a and .h files were generated. You will also need to manually edit pyin.h to wrap its function definitions with "extern C" as described in [this bug](https://github.com/Sleepwalking/libpyin/issues/10).
