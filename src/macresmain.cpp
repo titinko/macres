@@ -934,7 +934,14 @@ void pyin(double *wavform, int num_samples, int sample_rate, double ms_per_frq,
 	for (i = 0; i < num_frames; i++)
 	{
 		// Fill f0 with the result before returning.
-		f0[i] = (double) ((i >= pyin_nfrm) ? f0_pyin[pyin_nfrm - 1] : f0_pyin[i]);
+		if (i == 0)
+		{
+			f0[i] = 0.0;
+		}
+		else
+		{
+			f0[i] = (double) ((i >= pyin_nfrm) ? f0_pyin[pyin_nfrm - 1] : f0_pyin[i]);
+		}
 	}
 	free(wavform_pyin);
 	free(f0_pyin);
@@ -1078,7 +1085,7 @@ int main(int argc, char *argv[])
 		}
 	}
 	
-	// Original flag: Toggle reading f0 from .frq files. Default is reading the f0.
+	// Original flag: Toggle reading f0 from .frq files. Default is NOT reading the f0.
 	int flag_f = 0;
 	if (argc > 5 && (string_buf = strchr(argv[5], 'f')) != 0)
 	{
@@ -1126,22 +1133,21 @@ int main(int argc, char *argv[])
 	printf("\nAnalysis\n");
 
 	// Calculate beforehand the number of samples in F0 (one per FRAMEPERIOD ms).
-	double ms_per_frq = FRAMEPERIOD; // Can be overridden by frq file.
+	double ms_per_frq = FRAMEPERIOD;
 	num_frames = GetNumDIOSamples(sample_rate, num_samples, ms_per_frq);
 	
 	DWORD elapsedTime;
 	if(flag_W == 0) // F flag: F0 enforcement settings.
 	{
-		// Read frq file. Overrides num_frames and ms_per_frq if successful.
-		if (flag_f == 0)
+		// Read frq file.
+		if (flag_f == 1)
 		{
 			f0 = ReadFrqFile(
 				argv[1],
 				sample_rate,
-				num_samples,
+				num_frames,
 				atoi(argv[6]), // The original offset_ms is used for frq file.
-				&num_frames,
-				&ms_per_frq);
+				atoi(argv[9])); // The original cutoff_ms is used for frq file.
 		}
 		else
 		{

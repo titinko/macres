@@ -50,20 +50,14 @@ double bufToDouble(char *buf, char endian)
 /**
  * Reads a signal from a FRQ0003 file.
  * param wav_filename: file name of wav file.
- * param sample_rate: sample rate of the original wav file.
- * param num_samples: number of samples read from the wav file.
+ * param sample_rate: sample frequency (Hz) of signal
+ * param num_frames: number f0 values positions to fill.
  * param offset_ms: ms to start reading from.
- * param num_frames: put the number of frq values read here.
- * params ms_per_frq: put the ms per frq value (read from the file) here.
+ * params cutoff_ms: ms between point to end reading at and end of wav file.
  * Returns the f0 curve read, or NULL on failure.
  */
 double * ReadFrqFile(
-	char *wav_filename,
-	int sample_rate,
-	int num_samples,
-	int offset_ms,
-	int *num_frames,
-	double *ms_per_frq)
+	char *wav_filename, int sample_rate, int num_frames, int offset_ms, int cutoff_ms)
 {
 	char endian = 'l'; // 'l' for little-endian, 'b' for big-endian.
 	int i; // For loops.
@@ -151,11 +145,18 @@ double * ReadFrqFile(
 	read_result = fread(int_buf, sizeof(char), 4, file);
 	assert(read_result = 4);
 	total_num_frames = bufToInt(int_buf, endian);
-	// Total samples divided by samples_per_frq, rounded up.
-	expected_num_frames = (int)((double)num_samples / (double)samples_per_frq) + 1;
+	// Get start/end frame from offset and cutoff.
 	start_frame = (int) ((double)offset_ms / ms_per_frame);
-	end_frame = start_frame + expected_num_frames;
-	if (end_frame > total_num_frames)
+	if(cutoff_ms < 0) // Negative cutoff->add to offset instead of subtracting from end.
+	{
+		end_frame = (int) ((double)(abs(cutoff_ms) + offset_ms) / ms_per_frame);
+	}
+	else
+	{
+		end_frame = total_num_frames - ((int) ((double)cutoff_ms / ms_per_frame));
+	}
+	expected_num_frames = end_frame - start_frame;
+	if (end_frame > total_num_frames || expected_num_frames <= 0)
 	{
 		fclose(file);
 		free(frq_filename);
@@ -165,27 +166,40 @@ double * ReadFrqFile(
 	
 	size_t total_num_bytes = sizeof(double) * total_num_frames * 2;
 	char *f0_buf = (char *) malloc(sizeof(char) * total_num_bytes);
-	double *f0 = (double *)malloc(sizeof(double) * expected_num_frames);
+	double *f0 = (double *)malloc(sizeof(double) * num_frames);
 	
 	// Read everything else from the file into memory.
 	read_result = fread(f0_buf, sizeof(char), total_num_bytes, file);
 	assert(read_result == total_num_bytes);
-	
-	// Extract every other double as the f0 curve.
+		
 	int cur_byte;
-	for (int cur_frame = start_frame; cur_frame < end_frame; cur_frame++)
+	for (i = 0; i < num_frames; i++)
 	{
-		cur_byte = cur_frame * 16;
-		f0[cur_frame - start_frame] = bufToDouble(f0_buf + cur_byte, endian);
+		// Find closest frame.
+		int closest_frame = start_frame 
+			+ round(i * expected_num_frames * 1.0 / num_frames);
+		if (closest_frame < start_frame)
+		{
+			closest_frame = start_frame;
+		}
+		else if (closest_frame > end_frame - 1)
+		{
+			closest_frame = end_frame - 1;
+		}
+		cur_byte = closest_frame * 16;
+		if (i == 0)
+		{
+			f0[i] = 0.0; // It sounds horrible if I don't do this.
+		}
+		else
+		{
+			f0[i] = bufToDouble(f0_buf + cur_byte, endian);
+		}
 	}
 	
 	// Clean up.
 	free(frq_filename);
 	free(f0_buf);
-	fclose(file);
-	
-	// Populate return values.
-	*num_frames = expected_num_frames;
-	*ms_per_frq = ms_per_frame;
+	fclose(file);	
 	return f0;
 }
