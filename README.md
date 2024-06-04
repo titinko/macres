@@ -1,4 +1,5 @@
 # MacRes - A cross-platform resampler
+**[Download this resampler](https://github.com/titinko/macres/releases)**
 
 (Fork of https://github.com/ohac/tn_fnds)
 
