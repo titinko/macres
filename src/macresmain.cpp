@@ -967,7 +967,7 @@ int main(int argc, char *argv[])
 	if(argc < 3) 
 	{
 		printf("Params: inputfile outputfile notenum velocity flags offset_ms notelength");
-		printf(" fixedlength end intensity modulation tempo pitchbends\n");
+		printf(" fixedlength end intensity modulation pitchbends\n");
 		return 0;
 	}
 
